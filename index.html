@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Max Chat</title>
+    <title>Collaps Chat</title>
     <style>
         /* === БАЗОВЫЕ СТИЛИ === */
         * {
@@ -637,7 +637,7 @@
             <!-- Шапка -->
             <div class="header">
                 <div class="logo">
-                    <span>Max Chat</span>
+                    <span>Collaps Chat</span>
                     <button class="btn btn-primary btn-small" id="themeToggle">
                         <span id="themeIcon">🌙</span>
                         <span id="themeText">Тема</span>
@@ -665,7 +665,7 @@
                         <div class="tab-content active" id="globalTab">
                             <div class="list-container">
                                 <div class="list-item" style="text-align: center; color: var(--text-secondary); padding: 20px;">
-                                    Общий чат для всех пользователей
+                                    Общий чат Collaps Chat
                                 </div>
                             </div>
                         </div>
@@ -709,7 +709,7 @@
                     <!-- Экран входа -->
                     <div class="auth-screen" id="loginScreen">
                         <div class="auth-form">
-                            <h2>Вход в Max Chat</h2>
+                            <h2>Вход в Collaps Chat</h2>
                             <div class="form-group">
                                 <label>Юзернейм или Email</label>
                                 <input type="text" id="loginUsername" placeholder="Введите логин">
@@ -729,7 +729,7 @@
                     <!-- Экран регистрации -->
                     <div class="auth-screen" id="registerScreen" style="display: none;">
                         <div class="auth-form">
-                            <h2>Регистрация</h2>
+                            <h2>Регистрация в Collaps Chat</h2>
                             <div class="form-group">
                                 <label>Юзернейм</label>
                                 <input type="text" id="regUsername" placeholder="Придумайте никнейм">
@@ -760,7 +760,7 @@
                     <!-- Общий чат -->
                     <div class="chat-container" id="globalChatScreen" style="display: none;">
                         <div class="chat-header">
-                            <div class="chat-title">💬 Общий чат</div>
+                            <div class="chat-title">💬 Общий чат Collaps Chat</div>
                             <div class="chat-info" id="globalUsersCount">0 онлайн</div>
                         </div>
                         <div class="messages" id="globalMessages"></div>
@@ -924,19 +924,19 @@
 
         function initApp() {
             // Загружаем тему
-            const savedTheme = localStorage.getItem('maxChatTheme');
+            const savedTheme = localStorage.getItem('collapsChatTheme');
             if (savedTheme === 'dark') {
                 toggleTheme();
             }
             
             // Проверяем сохраненного пользователя
-            const savedUser = localStorage.getItem('maxChatUser');
+            const savedUser = localStorage.getItem('collapsChatUser');
             if (savedUser) {
                 try {
                     currentUser = JSON.parse(savedUser);
                     showMainApp();
                 } catch (e) {
-                    localStorage.removeItem('maxChatUser');
+                    localStorage.removeItem('collapsChatUser');
                 }
             }
             
@@ -1011,12 +1011,12 @@
                 html.removeAttribute('data-theme');
                 elements.themeIcon.textContent = '🌙';
                 elements.themeText.textContent = 'Тёмная';
-                localStorage.setItem('maxChatTheme', 'light');
+                localStorage.setItem('collapsChatTheme', 'light');
             } else {
                 html.setAttribute('data-theme', 'dark');
                 elements.themeIcon.textContent = '☀️';
                 elements.themeText.textContent = 'Светлая';
-                localStorage.setItem('maxChatTheme', 'dark');
+                localStorage.setItem('collapsChatTheme', 'dark');
             }
         }
 
@@ -1040,7 +1040,7 @@
                 lastSeen: Date.now()
             };
             
-            localStorage.setItem('maxChatUser', JSON.stringify(currentUser));
+            localStorage.setItem('collapsChatUser', JSON.stringify(currentUser));
             utils.showNotification('Вход выполнен успешно!');
             showMainApp();
         }
@@ -1097,15 +1097,15 @@
                 lastSeen: Date.now()
             };
             
-            localStorage.setItem('maxChatUser', JSON.stringify(currentUser));
-            utils.showNotification('Регистрация успешна!');
+            localStorage.setItem('collapsChatUser', JSON.stringify(currentUser));
+            utils.showNotification('Регистрация в Collaps Chat успешна!');
             showMainApp();
         }
 
         function handleLogout() {
             currentUser = null;
             selectedUser = null;
-            localStorage.removeItem('maxChatUser');
+            localStorage.removeItem('collapsChatUser');
             showScreen('login');
             elements.sidebar.style.display = 'none';
             elements.usernameDisplay.textContent = 'Гость';
@@ -1219,7 +1219,7 @@
                 },
                 { 
                     id: 'user2', 
-                    username: 'Поддержка', 
+                    username: 'Поддержка Collaps Chat', 
                     searchUsername: 'support', 
                     grant: true,
                     online: true
@@ -1444,15 +1444,6 @@
             if (!currentUser) return;
             const onlineCount = allUsers.filter(u => u.online).length + 1;
             elements.globalUsersCount.textContent = `${onlineCount} онлайн`;
-        }
-
-        // Автофокус на поле ввода при открытии чата
-        function focusInput() {
-            if (elements.globalChatScreen.style.display !== 'none') {
-                elements.globalMessageInput.focus();
-            } else if (elements.privateChatScreen.style.display !== 'none') {
-                elements.privateMessageInput.focus();
-            }
         }
 
         // Периодическое обновление статуса онлайн
