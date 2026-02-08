@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collaps Chat</title>
+    <!-- Подключаем Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    
     <style>
         /* === БАЗОВЫЕ СТИЛИ === */
         * {
@@ -41,6 +46,7 @@
             --verified-bg: #1DA1F2;
             --online-color: #2ecc71;
             --danger-color: #e74c3c;
+            --success-color: #2ecc71;
             --shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
@@ -137,12 +143,22 @@
             color: white;
         }
 
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
         .btn-small {
             padding: 4px 8px;
             font-size: 11px;
         }
 
-        .btn:hover {
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn:hover:not(:disabled) {
             opacity: 0.9;
             transform: translateY(-1px);
         }
@@ -471,6 +487,73 @@
             font-weight: bold;
         }
 
+        /* === МОДАЛЬНЫЕ ОКНА === */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .modal-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        /* === ИНДИКАТОР ЗАГРУЗКИ === */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* === МОБИЛЬНАЯ АДАПТАЦИЯ === */
         @media (max-width: 768px) {
             body {
@@ -664,7 +747,7 @@
                         <!-- Общий чат -->
                         <div class="tab-content active" id="globalTab">
                             <div class="list-container">
-                                <div class="list-item" style="text-align: center; color: var(--text-secondary); padding: 20px;">
+                                <div class="list-item active" id="globalChatItem" style="text-align: center; color: var(--text-secondary); padding: 20px;">
                                     Общий чат Collaps Chat
                                 </div>
                             </div>
@@ -676,7 +759,7 @@
                                 <input type="text" id="searchChannel" placeholder="Поиск каналов...">
                             </div>
                             <div class="list-container" id="channelsList">
-                                <!-- Каналы будут здесь -->
+                                <div class="loading">Загрузка каналов...</div>
                             </div>
                             <button class="btn btn-secondary" id="createChannelBtn" style="width: 100%;">+ Создать канал</button>
                         </div>
@@ -687,7 +770,7 @@
                                 <input type="text" id="searchGroup" placeholder="Поиск групп...">
                             </div>
                             <div class="list-container" id="groupsList">
-                                <!-- Группы будут здесь -->
+                                <div class="loading">Загрузка групп...</div>
                             </div>
                             <button class="btn btn-secondary" id="createGroupBtn" style="width: 100%;">+ Создать группу</button>
                         </div>
@@ -698,7 +781,7 @@
                                 <input type="text" id="searchUser" placeholder="Поиск пользователей...">
                             </div>
                             <div class="list-container" id="usersList">
-                                <!-- Пользователи будут здесь -->
+                                <div class="loading">Загрузка пользователей...</div>
                             </div>
                         </div>
                     </div>
@@ -711,15 +794,15 @@
                         <div class="auth-form">
                             <h2>Вход в Collaps Chat</h2>
                             <div class="form-group">
-                                <label>Юзернейм или Email</label>
-                                <input type="text" id="loginUsername" placeholder="Введите логин">
+                                <label>Email</label>
+                                <input type="email" id="loginEmail" placeholder="email@example.com">
                                 <div class="error" id="loginError"></div>
                             </div>
                             <div class="form-group">
                                 <label>Пароль</label>
                                 <input type="password" id="loginPassword" placeholder="Введите пароль">
                             </div>
-                            <button class="btn btn-secondary" id="loginBtn" style="width: 100%;">Войти</button>
+                            <button class="btn btn-secondary" id="loginBtn">Войти</button>
                             <div class="auth-link">
                                 Нет аккаунта? <a href="#" id="showRegister">Зарегистрироваться</a>
                             </div>
@@ -736,11 +819,6 @@
                                 <div class="error" id="regUsernameError"></div>
                             </div>
                             <div class="form-group">
-                                <label>Юзернейм для поиска</label>
-                                <input type="text" id="regSearchUsername" placeholder="Латиница и цифры">
-                                <div class="error" id="regSearchUsernameError"></div>
-                            </div>
-                            <div class="form-group">
                                 <label>Email</label>
                                 <input type="email" id="regEmail" placeholder="email@example.com">
                                 <div class="error" id="regEmailError"></div>
@@ -750,7 +828,7 @@
                                 <input type="password" id="regPassword" placeholder="Не менее 6 символов">
                                 <div class="error" id="regPasswordError"></div>
                             </div>
-                            <button class="btn btn-secondary" id="registerBtn" style="width: 100%;">Зарегистрироваться</button>
+                            <button class="btn btn-secondary" id="registerBtn">Зарегистрироваться</button>
                             <div class="auth-link">
                                 Уже есть аккаунт? <a href="#" id="showLogin">Войти</a>
                             </div>
@@ -761,12 +839,14 @@
                     <div class="chat-container" id="globalChatScreen" style="display: none;">
                         <div class="chat-header">
                             <div class="chat-title">💬 Общий чат Collaps Chat</div>
-                            <div class="chat-info" id="globalUsersCount">0 онлайн</div>
+                            <div class="chat-info" id="globalUsersCount">Загрузка...</div>
                         </div>
-                        <div class="messages" id="globalMessages"></div>
+                        <div class="messages" id="globalMessages">
+                            <div class="loading">Загрузка сообщений...</div>
+                        </div>
                         <div class="chat-input">
-                            <input type="text" id="globalMessageInput" placeholder="Напишите сообщение...">
-                            <button class="btn btn-secondary" id="sendGlobalMessage">Отправить</button>
+                            <input type="text" id="globalMessageInput" placeholder="Напишите сообщение..." disabled>
+                            <button class="btn btn-secondary" id="sendGlobalMessage" disabled>Отправить</button>
                         </div>
                     </div>
 
@@ -776,7 +856,9 @@
                             <div class="chat-title" id="privateChatTitle">💭 Личные сообщения</div>
                             <div class="chat-info" id="privateChatInfo"></div>
                         </div>
-                        <div class="messages" id="privateMessages"></div>
+                        <div class="messages" id="privateMessages">
+                            <div class="loading">Выберите пользователя для начала общения</div>
+                        </div>
                         <div class="chat-input">
                             <input type="text" id="privateMessageInput" placeholder="Напишите сообщение..." disabled>
                             <button class="btn btn-secondary" id="sendPrivateMessage" disabled>Отправить</button>
@@ -787,11 +869,51 @@
         </div>
     </div>
 
+    <!-- Модальное окно создания канала -->
+    <div class="modal" id="createChannelModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Создать канал</h3>
+                <button class="modal-close" id="closeChannelModal">×</button>
+            </div>
+            <div class="form-group">
+                <label>Название канала</label>
+                <input type="text" id="channelName" placeholder="Введите название">
+                <div class="error" id="channelNameError"></div>
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <input type="text" id="channelDescription" placeholder="Описание канала">
+            </div>
+            <button class="btn btn-success" id="confirmCreateChannel" style="width: 100%;">Создать канал</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания группы -->
+    <div class="modal" id="createGroupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Создать группу</h3>
+                <button class="modal-close" id="closeGroupModal">×</button>
+            </div>
+            <div class="form-group">
+                <label>Название группы</label>
+                <input type="text" id="groupName" placeholder="Введите название">
+                <div class="error" id="groupNameError"></div>
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <input type="text" id="groupDescription" placeholder="Описание группы">
+            </div>
+            <button class="btn btn-success" id="confirmCreateGroup" style="width: 100%;">Создать группу</button>
+        </div>
+    </div>
+
     <!-- Уведомление -->
     <div class="notification" id="notification"></div>
 
     <script>
-        // ========== КОНФИГУРАЦИЯ И ПЕРЕМЕННЫЕ ==========
+        // ========== КОНФИГУРАЦИЯ FIREBASE ==========
         const firebaseConfig = {
             apiKey: "AIzaSyDdey6ZroD4KsiPiD2dnVfQe3I3OW3MPV8",
             authDomain: "max-chat-f9319.firebaseapp.com",
@@ -802,11 +924,20 @@
             appId: "1:1013158224179:web:c4a052ca2e86034de59e46"
         };
 
+        // ========== ИНИЦИАЛИЗАЦИЯ FIREBASE ==========
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
         let currentUser = null;
         let selectedUser = null;
         let selectedChannel = null;
         let selectedGroup = null;
-        let allUsers = [];
+        let allUsers = {};
+        let globalChatListener = null;
+        let privateChatListener = null;
+        let onlineStatusListener = null;
 
         // ========== DOM ЭЛЕМЕНТЫ ==========
         const elements = {
@@ -823,12 +954,15 @@
             createGroupBtn: document.getElementById('createGroupBtn'),
             showRegister: document.getElementById('showRegister'),
             showLogin: document.getElementById('showLogin'),
+            confirmCreateChannel: document.getElementById('confirmCreateChannel'),
+            confirmCreateGroup: document.getElementById('confirmCreateGroup'),
+            closeChannelModal: document.getElementById('closeChannelModal'),
+            closeGroupModal: document.getElementById('closeGroupModal'),
             
             // Поля ввода
-            loginUsername: document.getElementById('loginUsername'),
+            loginEmail: document.getElementById('loginEmail'),
             loginPassword: document.getElementById('loginPassword'),
             regUsername: document.getElementById('regUsername'),
-            regSearchUsername: document.getElementById('regSearchUsername'),
             regEmail: document.getElementById('regEmail'),
             regPassword: document.getElementById('regPassword'),
             globalMessageInput: document.getElementById('globalMessageInput'),
@@ -836,6 +970,10 @@
             searchUser: document.getElementById('searchUser'),
             searchChannel: document.getElementById('searchChannel'),
             searchGroup: document.getElementById('searchGroup'),
+            channelName: document.getElementById('channelName'),
+            channelDescription: document.getElementById('channelDescription'),
+            groupName: document.getElementById('groupName'),
+            groupDescription: document.getElementById('groupDescription'),
             
             // Экраны и контейнеры
             loginScreen: document.getElementById('loginScreen'),
@@ -848,11 +986,14 @@
             usersList: document.getElementById('usersList'),
             channelsList: document.getElementById('channelsList'),
             groupsList: document.getElementById('groupsList'),
+            globalChatItem: document.getElementById('globalChatItem'),
             usernameDisplay: document.getElementById('usernameDisplay'),
             globalUsersCount: document.getElementById('globalUsersCount'),
             privateChatTitle: document.getElementById('privateChatTitle'),
             privateChatInfo: document.getElementById('privateChatInfo'),
             notification: document.getElementById('notification'),
+            createChannelModal: document.getElementById('createChannelModal'),
+            createGroupModal: document.getElementById('createGroupModal'),
             
             // Табы
             tabs: document.querySelectorAll('.tab'),
@@ -875,8 +1016,8 @@
                 return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
             },
             
-            validateSearchUsername(username) {
-                return /^[a-zA-Z0-9_]+$/.test(username);
+            validateUsername(username) {
+                return /^[a-zA-Z0-9_]{3,20}$/.test(username);
             },
             
             formatTime(timestamp) {
@@ -884,10 +1025,20 @@
                     const date = new Date(timestamp);
                     return date.toLocaleTimeString('ru-RU', { 
                         hour: '2-digit', 
-                        minute: '2-digit' 
+                        minute: '2-digit',
+                        hour12: false
                     });
                 } catch (e) {
                     return '00:00';
+                }
+            },
+            
+            formatDate(timestamp) {
+                try {
+                    const date = new Date(timestamp);
+                    return date.toLocaleDateString('ru-RU');
+                } catch (e) {
+                    return '';
                 }
             },
             
@@ -916,10 +1067,14 @@
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/\n/g, '<br>');
+            },
+            
+            generateMessageId() {
+                return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             }
         };
 
-        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        // ========== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ==========
         document.addEventListener('DOMContentLoaded', initApp);
 
         function initApp() {
@@ -929,18 +1084,22 @@
                 toggleTheme();
             }
             
-            // Проверяем сохраненного пользователя
-            const savedUser = localStorage.getItem('collapsChatUser');
-            if (savedUser) {
-                try {
-                    currentUser = JSON.parse(savedUser);
-                    showMainApp();
-                } catch (e) {
-                    localStorage.removeItem('collapsChatUser');
-                }
-            }
-            
             setupEventListeners();
+            
+            // Проверяем состояние аутентификации
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    // Пользователь вошел в систему
+                    loadUserData(user);
+                } else {
+                    // Пользователь вышел из системы
+                    showScreen('login');
+                    elements.sidebar.style.display = 'none';
+                    elements.usernameDisplay.textContent = 'Гость';
+                    elements.logoutBtn.style.display = 'none';
+                    cleanupListeners();
+                }
+            });
         }
 
         function setupEventListeners() {
@@ -966,7 +1125,7 @@
             });
             
             elements.showLogin.addEventListener('click', (e) => {
-                e.preventDefault();
+                            e.preventDefault();
                 showScreen('login');
             });
             
@@ -986,8 +1145,25 @@
             });
             
             // Создание каналов/групп
-            elements.createChannelBtn.addEventListener('click', showCreateChannelModal);
-            elements.createGroupBtn.addEventListener('click', showCreateGroupModal);
+            elements.createChannelBtn.addEventListener('click', () => {
+                elements.createChannelModal.style.display = 'flex';
+            });
+            
+            elements.createGroupBtn.addEventListener('click', () => {
+                elements.createGroupModal.style.display = 'flex';
+            });
+            
+            // Закрытие модальных окон
+            elements.closeChannelModal.addEventListener('click', () => {
+                elements.createChannelModal.style.display = 'none';
+            });
+            
+            elements.closeGroupModal.addEventListener('click', () => {
+                elements.createGroupModal.style.display = 'none';
+            });
+            
+            elements.confirmCreateChannel.addEventListener('click', createChannel);
+            elements.confirmCreateGroup.addEventListener('click', createGroup);
             
             // Поиск
             elements.searchUser.addEventListener('input', filterUsers);
@@ -999,6 +1175,11 @@
                 tab.addEventListener('click', () => {
                     switchTab(tab.dataset.tab);
                 });
+            });
+            
+            // Клик по общему чату в сайдбаре
+            elements.globalChatItem.addEventListener('click', () => {
+                selectGlobalChat();
             });
         }
 
@@ -1021,44 +1202,57 @@
         }
 
         async function handleLogin() {
-            const username = elements.loginUsername.value.trim();
+            const email = elements.loginEmail.value.trim();
             const password = elements.loginPassword.value.trim();
             
-            if (!username || !password) {
+            if (!email || !password) {
                 utils.showNotification('Заполните все поля', 'error');
                 return;
             }
             
-            // Имитация входа
-            currentUser = {
-                id: 'user_' + Date.now(),
-                username: username,
-                searchUsername: username.toLowerCase(),
-                email: '',
-                grant: ['support', 'durov', 'owner'].includes(username.toLowerCase()),
-                online: true,
-                lastSeen: Date.now()
-            };
-            
-            localStorage.setItem('collapsChatUser', JSON.stringify(currentUser));
-            utils.showNotification('Вход выполнен успешно!');
-            showMainApp();
+            try {
+                elements.loginBtn.disabled = true;
+                elements.loginBtn.textContent = 'Вход...';
+                
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                utils.showNotification('Вход выполнен успешно!');
+                
+            } catch (error) {
+                let errorMessage = 'Ошибка входа';
+                switch (error.code) {
+                    case 'auth/user-not-found':
+                        errorMessage = 'Пользователь не найден';
+                        break;
+                    case 'auth/wrong-password':
+                        errorMessage = 'Неверный пароль';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage = 'Неверный формат email';
+                        break;
+                    case 'auth/user-disabled':
+                        errorMessage = 'Аккаунт отключен';
+                        break;
+                }
+                utils.showNotification(errorMessage, 'error');
+            } finally {
+                elements.loginBtn.disabled = false;
+                elements.loginBtn.textContent = 'Войти';
+            }
         }
 
         async function handleRegister() {
             const username = elements.regUsername.value.trim();
-            const searchUsername = elements.regSearchUsername.value.trim().toLowerCase();
             const email = elements.regEmail.value.trim();
             const password = elements.regPassword.value.trim();
             
             // Валидация
-            if (!username || !searchUsername || !email || !password) {
+            if (!username || !email || !password) {
                 utils.showNotification('Заполните все поля', 'error');
                 return;
             }
             
-            if (!utils.validateSearchUsername(searchUsername)) {
-                utils.showNotification('Юзернейм должен содержать только латинские буквы, цифры и _', 'error');
+            if (!utils.validateUsername(username)) {
+                utils.showNotification('Юзернейм должен содержать 3-20 символов (латиница, цифры, _)', 'error');
                 return;
             }
             
@@ -1074,44 +1268,129 @@
             
             // Проверка на запрещенные слова
             const usernameCheck = utils.checkBannedWords(username);
-            const searchUsernameCheck = utils.checkBannedWords(searchUsername);
-            
             if (usernameCheck.banned) {
                 utils.showNotification(`Ник содержит запрещенное слово: ${usernameCheck.word}`, 'error');
                 return;
             }
             
-            if (searchUsernameCheck.banned) {
-                utils.showNotification(`Юзернейм содержит запрещенное слово: ${searchUsernameCheck.word}`, 'error');
-                return;
+            try {
+                elements.registerBtn.disabled = true;
+                elements.registerBtn.textContent = 'Регистрация...';
+                
+                // Создаем пользователя в Firebase Auth
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                
+                // Сохраняем дополнительную информацию в Realtime Database
+                await database.ref('users/' + userCredential.user.uid).set({
+                    username: username,
+                    email: email,
+                    createdAt: Date.now(),
+                    lastSeen: Date.now(),
+                    online: true,
+                    grant: ['support', 'durov', 'owner'].includes(username.toLowerCase())
+                });
+                
+                utils.showNotification('Регистрация успешна!');
+                
+            } catch (error) {
+                let errorMessage = 'Ошибка регистрации';
+                switch (error.code) {
+                    case 'auth/email-already-in-use':
+                        errorMessage = 'Email уже используется';
+                        break;
+                    case 'auth/invalid-email':
+                        errorMessage = 'Неверный формат email';
+                        break;
+                    case 'auth/weak-password':
+                        errorMessage = 'Слабый пароль';
+                        break;
+                    case 'auth/operation-not-allowed':
+                        errorMessage = 'Регистрация отключена';
+                        break;
+                }
+                utils.showNotification(errorMessage, 'error');
+            } finally {
+                elements.registerBtn.disabled = false;
+                elements.registerBtn.textContent = 'Зарегистрироваться';
             }
+        }
+
+        async function loadUserData(firebaseUser) {
+            try {
+                // Загружаем данные пользователя из базы данных
+                const userSnapshot = await database.ref('users/' + firebaseUser.uid).once('value');
+                const userData = userSnapshot.val();
+                
+                if (!userData) {
+                    utils.showNotification('Ошибка загрузки данных пользователя', 'error');
+                    await auth.signOut();
+                    return;
+                }
+                
+                currentUser = {
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    ...userData
+                };
+                
+                // Обновляем статус онлайн
+                await updateOnlineStatus(true);
+                
+                // Показываем основное приложение
+                showMainApp();
+                
+                // Загружаем пользователей
+                loadAllUsers();
+                
+                // Загружаем каналы и группы
+                loadChannels();
+                loadGroups();
+                
+                // Подписываемся на общий чат
+                subscribeToGlobalChat();
+                
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                utils.showNotification('Ошибка загрузки данных', 'error');
+            }
+        }
+
+        async function updateOnlineStatus(online) {
+            if (!currentUser) return;
             
-            // Имитация регистрации
-            currentUser = {
-                id: 'user_' + Date.now(),
-                username: username,
-                searchUsername: searchUsername,
-                email: email,
-                grant: ['support', 'durov', 'owner'].includes(searchUsername),
-                online: true,
-                lastSeen: Date.now()
+            const updates = {
+                'users/' + currentUser.id + '/online': online,
+                'users/' + currentUser.id + '/lastSeen': Date.now()
             };
             
-            localStorage.setItem('collapsChatUser', JSON.stringify(currentUser));
-            utils.showNotification('Регистрация в Collaps Chat успешна!');
-            showMainApp();
+            if (!online) {
+                updates['users/' + currentUser.id + '/lastSeen'] = Date.now();
+            }
+            
+            try {
+                await database.ref().update(updates);
+            } catch (error) {
+                console.error('Error updating online status:', error);
+            }
         }
 
         function handleLogout() {
+            // Обновляем статус перед выходом
+            if (currentUser) {
+                updateOnlineStatus(false);
+            }
+            
+            // Очищаем слушатели
+            cleanupListeners();
+            
+            // Выход из Firebase Auth
+            auth.signOut();
+            
+            // Сбрасываем состояние
             currentUser = null;
             selectedUser = null;
-            localStorage.removeItem('collapsChatUser');
-            showScreen('login');
-            elements.sidebar.style.display = 'none';
-            elements.usernameDisplay.textContent = 'Гость';
-            elements.logoutBtn.style.display = 'none';
-            elements.globalMessages.innerHTML = '';
-            elements.privateMessages.innerHTML = '';
+            allUsers = {};
+            
             utils.showNotification('Вы вышли из системы');
         }
 
@@ -1129,14 +1408,17 @@
             showScreen('globalChat');
             switchTab('global');
             
-            // Загружаем пользователей
-            loadUsers();
+            // Включаем поле ввода
+            elements.globalMessageInput.disabled = false;
+            elements.sendGlobalMessage.disabled = false;
             
-            // Обновляем счетчик онлайн
-            updateOnlineCount();
+            // Загружаем онлайн-статусы
+            subscribeToOnlineStatus();
         }
 
         function updateUserDisplay() {
+            if (!currentUser) return;
+            
             let usernameHtml = currentUser.username;
             if (currentUser.grant) {
                 usernameHtml += ' <span class="verified-badge"></span>';
@@ -1155,9 +1437,11 @@
             switch(screenName) {
                 case 'login':
                     elements.loginScreen.style.display = 'flex';
+                    elements.loginEmail.focus();
                     break;
                 case 'register':
                     elements.registerScreen.style.display = 'flex';
+                    elements.regUsername.focus();
                     break;
                 case 'globalChat':
                     elements.globalChatScreen.style.display = 'flex';
@@ -1189,12 +1473,13 @@
             // Переключаем экран чата
             switch(tabName) {
                 case 'global':
-                    showScreen('globalChat');
+                    selectGlobalChat();
                     break;
                 case 'users':
                     if (!selectedUser) {
                         elements.privateChatTitle.textContent = '💭 Личные сообщения';
-                        elements.privateMessages.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Выберите пользователя из списка</div>';
+                        elements.privateChatInfo.textContent = 'Выберите пользователя';
+                        elements.privateMessages.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Выберите пользователя из списка для начала общения</div>';
                         elements.privateMessageInput.disabled = true;
                         elements.sendPrivateMessage.disabled = true;
                     }
@@ -1202,142 +1487,315 @@
                     break;
                 case 'channels':
                 case 'groups':
-                    showScreen('globalChat');
+                    // Показываем общий чат, но можно переделать для каналов/групп
+                    selectGlobalChat();
                     break;
             }
         }
 
-        function loadUsers() {
-            // Имитация загрузки пользователей
-            allUsers = [
-                { 
-                    id: 'user1', 
-                    username: 'Тестовый аккаунт', 
-                    searchUsername: 'testuser', 
-                    grant: false,
-                    online: true
-                },
-                { 
-                    id: 'user2', 
-                    username: 'Поддержка Collaps Chat', 
-                    searchUsername: 'support', 
-                    grant: true,
-                    online: true
-                }
-            ];
+        function selectGlobalChat() {
+            selectedUser = null;
+            selectedChannel = null;
+            selectedGroup = null;
+            showScreen('globalChat');
+            switchTab('global');
             
-            displayUsers(allUsers);
-            updateOnlineCount();
+            // Обновляем активный элемент в сайдбаре
+            document.querySelectorAll('.list-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            elements.globalChatItem.classList.add('active');
+        }
+
+        async function loadAllUsers() {
+            try {
+                const usersRef = database.ref('users');
+                
+                usersRef.on('value', (snapshot) => {
+                    allUsers = {};
+                    const usersArray = [];
+                    
+                    snapshot.forEach((childSnapshot) => {
+                        const user = childSnapshot.val();
+                        user.id = childSnapshot.key;
+                        
+                        // Не добавляем текущего пользователя в список
+                        if (user.id !== currentUser.id) {
+                            allUsers[user.id] = user;
+                            usersArray.push(user);
+                        }
+                    });
+                    
+                    displayUsers(usersArray);
+                    updateOnlineCount();
+                });
+                
+            } catch (error) {
+                console.error('Error loading users:', error);
+                elements.usersList.innerHTML = '<div class="error">Ошибка загрузки пользователей</div>';
+            }
         }
 
         function displayUsers(users) {
-            elements.usersList.innerHTML = '';
-            
             if (users.length === 0) {
-                elements.usersList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Нет пользователей</div>';
+                elements.usersList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Нет других пользователей</div>';
                 return;
             }
             
+            // Сортируем: сначала онлайн, потом по алфавиту
+            users.sort((a, b) => {
+                if (a.online && !b.online) return -1;
+                if (!a.online && b.online) return 1;
+                return a.username.localeCompare(b.username);
+            });
+            
+            let usersHTML = '';
+            
             users.forEach(user => {
-                if (currentUser && user.id === currentUser.id) return;
-                
-                const userElement = document.createElement('div');
-                userElement.className = 'list-item';
-                if (selectedUser && selectedUser.id === user.id) {
-                    userElement.classList.add('active');
-                }
-                
                 const verifiedBadge = user.grant ? '<span class="verified-badge"></span>' : '';
                 const onlineStatus = user.online ? 
                     '<span style="color: var(--online-color); font-size: 10px;">● онлайн</span>' :
-                    '<span style="color: var(--text-muted); font-size: 10px;">● офлайн</span>';
+                    `<span style="color: var(--text-muted); font-size: 10px;">● был(а) ${utils.formatTime(user.lastSeen)}</span>`;
                 
-                userElement.innerHTML = `
-                    <div style="font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;">
-                        ${user.username} ${verifiedBadge}
-                    </div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">
-                        @${user.searchUsername}
-                        <div style="margin-top: 2px;">${onlineStatus}</div>
+                const isActive = selectedUser && selectedUser.id === user.id ? 'active' : '';
+                
+                usersHTML += `
+                    <div class="list-item ${isActive}" data-user-id="${user.id}">
+                        <div style="font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;">
+                            ${user.username} ${verifiedBadge}
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            ${user.email}
+                            <div style="margin-top: 2px;">${onlineStatus}</div>
+                        </div>
                     </div>
                 `;
-                
-                userElement.addEventListener('click', () => {
-                    selectUser(user);
+            });
+            
+            elements.usersList.innerHTML = usersHTML;
+            
+            // Добавляем обработчики кликов
+            document.querySelectorAll('.list-item[data-user-id]').forEach(item => {
+                item.addEventListener('click', () => {
+                    const userId = item.dataset.userId;
+                    selectUser(allUsers[userId]);
                 });
-                
-                elements.usersList.appendChild(userElement);
             });
         }
 
         function selectUser(user) {
             selectedUser = user;
+            selectedChannel = null;
+            selectedGroup = null;
+            
             elements.privateChatTitle.textContent = `💭 ${user.username}`;
+            elements.privateChatInfo.textContent = user.online ? '● онлайн' : '● офлайн';
             elements.privateMessageInput.disabled = false;
             elements.sendPrivateMessage.disabled = false;
-            elements.privateMessages.innerHTML = '';
+            
+            // Обновляем активный элемент
+            document.querySelectorAll('.list-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`.list-item[data-user-id="${user.id}"]`)?.classList.add('active');
             
             // Показываем чат
             showScreen('privateChat');
             switchTab('users');
+            
+            // Загружаем историю сообщений
+            loadPrivateMessages();
         }
 
-        function sendGlobalMessage() {
-            const message = elements.globalMessageInput.value.trim();
-            if (!message || !currentUser) return;
+        function subscribeToGlobalChat() {
+            // Отписываемся от предыдущего слушателя
+            if (globalChatListener) {
+                globalChatListener();
+            }
+            
+            // Очищаем сообщения
+            elements.globalMessages.innerHTML = '';
+            
+            // Подписываемся на новые сообщения
+            const messagesRef = database.ref('messages/global');
+            
+            globalChatListener = messagesRef.orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
+                elements.globalMessages.innerHTML = '';
+                
+                snapshot.forEach((childSnapshot) => {
+                    const message = childSnapshot.val();
+                    addMessageToUI(message, 'global', message.userId === currentUser.id);
+                });
+                
+                // Прокручиваем вниз
+                setTimeout(() => {
+                    elements.globalMessages.scrollTop = elements.globalMessages.scrollHeight;
+                }, 100);
+            }, (error) => {
+                console.error('Error loading global messages:', error);
+                elements.globalMessages.innerHTML = '<div class="error">Ошибка загрузки сообщений</div>';
+            });
+        }
+
+        async function loadPrivateMessages() {
+            if (!selectedUser || !currentUser) return;
+            
+            // Отписываемся от предыдущего слушателя
+            if (privateChatListener) {
+                privateChatListener();
+            }
+            
+            // Очищаем сообщения
+            elements.privateMessages.innerHTML = '<div class="loading"><span class="spinner"></span>Загрузка сообщений...</div>';
+            
+            // Определяем ID чата (сортируем ID пользователей для создания уникального ключа)
+            const chatId = [currentUser.id, selectedUser.id].sort().join('_');
+            
+            // Подписываемся на сообщения
+            const messagesRef = database.ref(`private_messages/${chatId}`);
+            
+            privateChatListener = messagesRef.orderByChild('timestamp').limitToLast(50).on('value', (snapshot) => {
+                elements.privateMessages.innerHTML = '';
+                
+                if (!snapshot.exists()) {
+                    elements.privateMessages.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Нет сообщений. Начните общение!</div>';
+                    return;
+                }
+                
+                snapshot.forEach((childSnapshot) => {
+                    const message = childSnapshot.val();
+                    addMessageToUI(message, 'private', message.senderId === currentUser.id);
+                });
+                
+                // Прокручиваем вниз
+                setTimeout(() => {
+                    elements.privateMessages.scrollTop = elements.privateMessages.scrollHeight;
+                }, 100);
+            }, (error) => {
+                console.error('Error loading private messages:', error);
+                elements.privateMessages.innerHTML = '<div class="error">Ошибка загрузки сообщений</div>';
+            });
+        }
+
+        async function sendGlobalMessage() {
+            const messageText = elements.globalMessageInput.value.trim();
+            if (!messageText || !currentUser) return;
             
             // Проверка на запрещенные слова
-            const check = utils.checkBannedWords(message);
+            const check = utils.checkBannedWords(messageText);
             if (check.banned) {
                 utils.showNotification(`Сообщение содержит запрещенное слово: ${check.word}`, 'error');
                 return;
             }
             
-            addMessage(message, currentUser, true, 'global');
-            elements.globalMessageInput.value = '';
-            elements.globalMessageInput.focus();
+            try {
+                const messageId = utils.generateMessageId();
+                const message = {
+                    id: messageId,
+                    text: messageText,
+                    userId: currentUser.id,
+                    username: currentUser.username,
+                    userGrant: currentUser.grant || false,
+                    timestamp: Date.now()
+                };
+                
+                await database.ref(`messages/global/${messageId}`).set(message);
+                
+                elements.globalMessageInput.value = '';
+                elements.globalMessageInput.focus();
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                utils.showNotification('Ошибка отправки сообщения', 'error');
+            }
         }
 
-        function sendPrivateMessage() {
-            const message = elements.privateMessageInput.value.trim();
-            if (!message || !currentUser || !selectedUser) return;
+        async function sendPrivateMessage() {
+            const messageText = elements.privateMessageInput.value.trim();
+            if (!messageText || !currentUser || !selectedUser) return;
             
             // Проверка на запрещенные слова
-            const check = utils.checkBannedWords(message);
+            const check = utils.checkBannedWords(messageText);
             if (check.banned) {
                 utils.showNotification(`Сообщение содержит запрещенное слово: ${check.word}`, 'error');
                 return;
             }
             
-            addMessage(message, currentUser, true, 'private');
-            elements.privateMessageInput.value = '';
-            elements.privateMessageInput.focus();
+            try {
+                const messageId = utils.generateMessageId();
+                const chatId = [currentUser.id, selectedUser.id].sort().join('_');
+                
+                const message = {
+                    id: messageId,
+                    text: messageText,
+                    senderId: currentUser.id,
+                    senderUsername: currentUser.username,
+                    senderGrant: currentUser.grant || false,
+                    receiverId: selectedUser.id,
+                    timestamp: Date.now(),
+                    read: false
+                };
+                
+                await database.ref(`private_messages/${chatId}/${messageId}`).set(message);
+                
+                elements.privateMessageInput.value = '';
+                elements.privateMessageInput.focus();
+                
+            } catch (error) {
+                console.error('Error sending private message:', error);
+                utils.showNotification('Ошибка отправки сообщения', 'error');
+            }
         }
 
-        function addMessage(text, user, isSent, type) {
+        function addMessageToUI(message, type, isSent) {
             const container = type === 'global' ? elements.globalMessages : elements.privateMessages;
+            
             const messageElement = document.createElement('div');
             messageElement.className = `message ${isSent ? 'sent' : ''}`;
             
-            const verifiedBadge = user.grant ? '<span class="verified-badge"></span>' : '';
-            const displayName = isSent ? 'Вы' : user.username;
-            const safeText = utils.sanitizeText(text);
+            const verifiedBadge = message.userGrant || message.senderGrant ? '<span class="verified-badge"></span>' : '';
+            const displayName = isSent ? 'Вы' : (message.username || message.senderUsername);
+            const safeText = utils.sanitizeText(message.text);
+            
+            // Проверяем, нужно ли показать дату
+            let dateHTML = '';
+            const messageDate = new Date(message.timestamp);
+            const today = new Date();
+            
+            if (messageDate.toDateString() !== today.toDateString()) {
+                dateHTML = `<div style="text-align: center; margin: 10px 0; color: var(--text-muted); font-size: 11px;">
+                    ${utils.formatDate(message.timestamp)}
+                </div>`;
+                
+                // Проверяем, была ли уже показана эта дата
+                const lastMessage = container.lastChild;
+                if (!lastMessage || !lastMessage.classList.contains('date-separator')) {
+                    const dateElement = document.createElement('div');
+                    dateElement.className = 'date-separator';
+                    dateElement.innerHTML = dateHTML;
+                    container.appendChild(dateElement);
+                }
+            }
             
             messageElement.innerHTML = `
                 <div class="message-content">${safeText}</div>
                 <div class="message-info">
                     <span>${displayName} ${verifiedBadge}</span>
-                    <span>• ${utils.formatTime(Date.now())}</span>
+                    <span>• ${utils.formatTime(message.timestamp)}</span>
                 </div>
             `;
             
             container.appendChild(messageElement);
-            container.scrollTop = container.scrollHeight;
         }
 
-        function showCreateChannelModal() {
-            const name = prompt('Введите название канала:');
-            if (!name) return;
+        async function createChannel() {
+            const name = elements.channelName.value.trim();
+            const description = elements.channelDescription.value.trim();
+            
+            if (!name) {
+                utils.showNotification('Введите название канала', 'error');
+                return;
+            }
             
             // Проверка на запрещенные слова
             const check = utils.checkBannedWords(name);
@@ -1346,24 +1804,44 @@
                 return;
             }
             
-            const description = prompt('Введите описание канала (необязательно):') || '';
-            
-            const channel = {
-                id: 'channel_' + Date.now(),
-                name: name,
-                description: description,
-                creator: currentUser.username,
-                members: 1,
-                createdAt: Date.now()
-            };
-            
-            addChannelToList(channel);
-            utils.showNotification(`Канал "${name}" создан!`);
+            try {
+                const channelId = 'channel_' + Date.now();
+                const channel = {
+                    id: channelId,
+                    name: name,
+                    description: description,
+                    creatorId: currentUser.id,
+                    creatorName: currentUser.username,
+                    createdAt: Date.now(),
+                    members: {
+                        [currentUser.id]: true
+                    }
+                };
+                
+                await database.ref(`channels/${channelId}`).set(channel);
+                
+                utils.showNotification(`Канал "${name}" создан!`);
+                elements.createChannelModal.style.display = 'none';
+                elements.channelName.value = '';
+                elements.channelDescription.value = '';
+                
+                // Переключаемся на вкладку каналов
+                switchTab('channels');
+                
+            } catch (error) {
+                console.error('Error creating channel:', error);
+                utils.showNotification('Ошибка создания канала', 'error');
+            }
         }
 
-        function showCreateGroupModal() {
-            const name = prompt('Введите название группы:');
-            if (!name) return;
+        async function createGroup() {
+            const name = elements.groupName.value.trim();
+            const description = elements.groupDescription.value.trim();
+            
+            if (!name) {
+                utils.showNotification('Введите название группы', 'error');
+                return;
+            }
             
             // Проверка на запрещенные слова
             const check = utils.checkBannedWords(name);
@@ -1372,32 +1850,100 @@
                 return;
             }
             
-            const description = prompt('Введите описание группы (необязательно):') || '';
-            
-            const group = {
-                id: 'group_' + Date.now(),
-                name: name,
-                description: description,
-                creator: currentUser.username,
-                members: 1,
-                createdAt: Date.now()
-            };
-            
-            addGroupToList(group);
-            utils.showNotification(`Группа "${name}" создана!`);
+            try {
+                const groupId = 'group_' + Date.now();
+                const group = {
+                    id: groupId,
+                    name: name,
+                    description: description,
+                    creatorId: currentUser.id,
+                    creatorName: currentUser.username,
+                    createdAt: Date.now(),
+                    members: {
+                        [currentUser.id]: true
+                    }
+                };
+                
+                await database.ref(`groups/${groupId}`).set(group);
+                
+                utils.showNotification(`Группа "${name}" создана!`);
+                elements.createGroupModal.style.display = 'none';
+                elements.groupName.value = '';
+                elements.groupDescription.value = '';
+                
+                // Переключаемся на вкладку групп
+                switchTab('groups');
+                
+            } catch (error) {
+                console.error('Error creating group:', error);
+                utils.showNotification('Ошибка создания группы', 'error');
+            }
+        }
+
+        async function loadChannels() {
+            try {
+                const channelsRef = database.ref('channels');
+                
+                channelsRef.on('value', (snapshot) => {
+                    elements.channelsList.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        elements.channelsList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Нет каналов</div>';
+                        return;
+                    }
+                    
+                    snapshot.forEach((childSnapshot) => {
+                        const channel = childSnapshot.val();
+                        addChannelToList(channel);
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Error loading channels:', error);
+                elements.channelsList.innerHTML = '<div class="error">Ошибка загрузки каналов</div>';
+            }
+        }
+
+        async function loadGroups() {
+            try {
+                const groupsRef = database.ref('groups');
+                
+                groupsRef.on('value', (snapshot) => {
+                    elements.groupsList.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        elements.groupsList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Нет групп</div>';
+                        return;
+                    }
+                    
+                    snapshot.forEach((childSnapshot) => {
+                        const group = childSnapshot.val();
+                        addGroupToList(group);
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Error loading groups:', error);
+                elements.groupsList.innerHTML = '<div class="error">Ошибка загрузки групп</div>';
+            }
         }
 
         function addChannelToList(channel) {
             const channelElement = document.createElement('div');
             channelElement.className = 'list-item';
+            channelElement.dataset.channelId = channel.id;
+            
+            const memberCount = channel.members ? Object.keys(channel.members).length : 0;
             
             channelElement.innerHTML = `
-                <div style="font-weight: 600; margin-bottom: 4px;"># ${channel.name}</div>
+                <div style="font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;">
+                    # ${channel.name}
+                </div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;">
                     ${channel.description || 'Нет описания'}
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted);">
-                    ${channel.members} участников • создал ${channel.creator}
+                    ${memberCount} участников • создал ${channel.creatorName}
                 </div>
             `;
             
@@ -1407,14 +1953,19 @@
         function addGroupToList(group) {
             const groupElement = document.createElement('div');
             groupElement.className = 'list-item';
+            groupElement.dataset.groupId = group.id;
+            
+            const memberCount = group.members ? Object.keys(group.members).length : 0;
             
             groupElement.innerHTML = `
-                <div style="font-weight: 600; margin-bottom: 4px;">👥 ${group.name}</div>
+                <div style="font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;">
+                    👥 ${group.name}
+                </div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;">
                     ${group.description || 'Нет описания'}
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted);">
-                    ${group.members} участников • создал ${group.creator}
+                    ${memberCount} участников • создал ${group.creatorName}
                 </div>
             `;
             
@@ -1423,31 +1974,124 @@
 
         function filterUsers() {
             const searchTerm = elements.searchUser.value.toLowerCase();
-            const filteredUsers = allUsers.filter(user => 
+            const filteredUsers = Object.values(allUsers).filter(user => 
                 user.username.toLowerCase().includes(searchTerm) || 
-                user.searchUsername.toLowerCase().includes(searchTerm)
+                user.email.toLowerCase().includes(searchTerm)
             );
             displayUsers(filteredUsers);
         }
 
         function filterChannels() {
             const searchTerm = elements.searchChannel.value.toLowerCase();
-            // Здесь будет фильтрация каналов
+            // Здесь будет фильтрация каналов по мере реализации
         }
 
         function filterGroups() {
             const searchTerm = elements.searchGroup.value.toLowerCase();
-            // Здесь будет фильтрация групп
+            // Здесь будет фильтрация групп по мере реализации
+        }
+
+        function subscribeToOnlineStatus() {
+            if (onlineStatusListener) {
+                onlineStatusListener();
+            }
+            
+            const usersRef = database.ref('users');
+            
+            onlineStatusListener = usersRef.on('value', (snapshot) => {
+                updateOnlineCount();
+            });
         }
 
         function updateOnlineCount() {
             if (!currentUser) return;
-            const onlineCount = allUsers.filter(u => u.online).length + 1;
-            elements.globalUsersCount.textContent = `${onlineCount} онлайн`;
+            
+            let onlineCount = 0;
+            let totalCount = 0;
+            
+            Object.values(allUsers).forEach(user => {
+                totalCount++;
+                if (user.online) {
+                    onlineCount++;
+                }
+            });
+            
+            // Добавляем текущего пользователя
+            onlineCount++;
+            totalCount++;
+            
+            elements.globalUsersCount.textContent = `${onlineCount}/${totalCount} онлайн`;
         }
 
-        // Периодическое обновление статуса онлайн
-        setInterval(updateOnlineCount, 10000);
+        function cleanupListeners() {
+            // Отписываемся от всех слушателей
+            if (globalChatListener) {
+                globalChatListener();
+                globalChatListener = null;
+            }
+            
+            if (privateChatListener) {
+                privateChatListener();
+                privateChatListener = null;
+            }
+            
+            if (onlineStatusListener) {
+                onlineStatusListener();
+                onlineStatusListener = null;
+            }
+        }
+
+        // Обновляем статус онлайн при закрытии/обновлении страницы
+        window.addEventListener('beforeunload', () => {
+            if (currentUser) {
+                updateOnlineStatus(false);
+            }
+        });
+
+        // Обновляем статус при фокусе/разфокусе окна
+        window.addEventListener('focus', () => {
+            if (currentUser) {
+                updateOnlineStatus(true);
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            // Можно добавить небольшую задержку перед установкой офлайн,
+            // чтобы не менять статус при быстром переключении вкладок
+        });
+
+        // ========== ЗАГРУЗКА ИСТОРИЧЕСКИХ СООБЩЕНИЙ ПРИ ПРОКРУТКЕ ==========
+        let globalMessagesLoading = false;
+        let privateMessagesLoading = false;
+
+        elements.globalMessages.addEventListener('scroll', function() {
+            if (this.scrollTop === 0 && !globalMessagesLoading) {
+                loadMoreGlobalMessages();
+            }
+        });
+
+        elements.privateMessages.addEventListener('scroll', function() {
+            if (this.scrollTop === 0 && !privateMessagesLoading && selectedUser) {
+                loadMorePrivateMessages();
+            }
+        });
+
+        async function loadMoreGlobalMessages() {
+            // Реализация подгрузки старых сообщений
+            // Для простоты оставим заглушку
+        }
+
+        async function loadMorePrivateMessages() {
+            // Реализация подгрузки старых приватных сообщений
+            // Для простоты оставим заглушку
+        }
+
+        // Автоматическая прокрутка к новым сообщениям
+        function scrollToBottom(container) {
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
+        }
     </script>
 </body>
 </html>
